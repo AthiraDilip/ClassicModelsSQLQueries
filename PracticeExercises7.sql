@@ -79,6 +79,7 @@ FROM products p1
 ORDER BY productLine, stock_percentage DESC;
 
 -- 4. For orders containing more than two products, report those products that constitute more than 50% of the value of the order.
+-- CTE for my solution
 SELECT
 	orderNumber,
     productCode,
@@ -89,6 +90,7 @@ SELECT
 	SUM(quantityOrdered * priceEach) OVER(PARTITION BY orderNumber, productCode) AS totalValueofEachProductInTheOrder
 FROM orderdetails;
 
+-- My Solution
 WITH productDetailsPerOrderPerProduct AS(
 SELECT
 	orderNumber,
@@ -103,4 +105,30 @@ FROM orderdetails
 SELECT
 	*
 FROM productDetailsPerOrderPerProduct
-WHERE totalValueofEachProductInTheOrder > 0.5 * totalValueofEachOrder;
+WHERE 
+totalValueofEachProductInTheOrder > 0.5 * totalValueofEachOrder
+AND
+productsOrderedCount > 2;
+
+-- Solution from web
+SELECT 
+	od.orderNumber, 
+    od.productCode, 
+    (od.priceEach * od.quantityOrdered) AS product_value,
+    ROUND((od.priceEach * od.quantityOrdered) /
+		(SELECT SUM(od2.priceEach * od2.quantityOrdered)
+		 FROM orderdetails od2
+		 WHERE od2.orderNumber = od.orderNumber) * 100, 2) AS product_percentage
+FROM orderdetails od
+WHERE
+	(od.priceEach * od.quantityOrdered) >
+    (SELECT SUM(od2.priceEach * od2.quantityOrdered) * 0.5
+    FROM orderdetails od2
+    WHERE od2.orderNumber = od.orderNumber)
+AND od.orderNumber IN (
+	SELECT orderNumber
+    FROM orderdetails
+    GROUP BY orderNumber
+    HAVING COUNT(DISTINCT productCode) > 2
+)
+ORDER BY od.orderNumber, product_percentage DESC;
